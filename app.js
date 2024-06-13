@@ -13,7 +13,7 @@ const authenticateUser = require('./middleware/authentication')
 //router
 const authRouter = require('./routes/auth')
 const groupRouter = require('./routes/group')
-//const chatRouter = require('./routes/chat')
+const messageRouter = require('./routes/message')
 const inviteRouter = require('./routes/invite')
 
 app.use(express.json());
@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
 
 app.use("/api/v1/auth" , authRouter)
 app.use("/api/v1/group" , authenticateUser,  groupRouter)
-//app.use("/api/v1/chat" , chatRouter)
+app.use("/api/v1/message" ,authenticateUser, messageRouter)
 app.use("/api/v1/invite", authenticateUser, inviteRouter)
 
 
