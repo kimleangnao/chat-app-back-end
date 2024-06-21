@@ -1,27 +1,36 @@
 const Message = require('../models/Message')
-const {StatusCodes} = require("http-status-codes")
-const {BadRequestError, UnauthenticatedError} = require("../errors")
+const { StatusCodes } = require('http-status-codes')
+const { BadRequestError, UnauthenticatedError } = require('../errors')
 
 const addMessage = async (req, res) => {
     req.body.createdBy = req.user.userId
 
-    const message = await Message.create({...req.body})
+    const message = await Message.create({ ...req.body })
 
-
-    res.status(StatusCodes.CREATED).json({msg: 'success', message})
+    res.status(StatusCodes.CREATED).json({ msg: 'success', message })
 }
 
 const getMessages = async (req, res) => {
+    const { receiverId } = req.body
+    const { userId } = req.user
 
-    const {groupId} = req.body
+    const messages = await Message.find({
+        $or: [
+            { createdBy: userId, receiver: receiverId },
+            {
+                createdBy: receiverId,
+                receiver: userId,
+            },
+        ],
+    }).sort('createdAt')
 
-    const messages = await Message.find({groupId}).sort('createdAt')
-
-    res.status(StatusCodes.OK).json({msg: 'success', messages})
+    res.status(StatusCodes.OK).json({
+        msg: 'success',
+        messages,
+    })
 }
 
 module.exports = {
     addMessage,
-    getMessages
+    getMessages,
 }
-

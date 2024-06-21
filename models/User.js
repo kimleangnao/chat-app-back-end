@@ -1,55 +1,67 @@
-const mongoose = require("mongoose")
-const bcrypt = require("bcryptjs")
-const jwt = require("jsonwebtoken")
+const mongoose = require('mongoose')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
 
-
-const UserSchema = new mongoose.Schema({
-    firstname : {
-        type:String,
-        required:[true, "Please provide name"],
-        minLength: 3,
-        maxLength: 50
-    },
-    lastname : {
-        type:String,
-        required:[true, "Please provide name"],
-        minLength: 3,
-        maxLength: 50
-    },
-    accountname: {
-        type:String,
-        required:[true, "Please provide name"],
-        minLength: 3,
-        maxLength: 50
-    },
-    email : {
-        type:String,
-        required:[true, "Please provide email"],
-        match: [
-            /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/, 
-            "please provid a valid email"
+const UserSchema = new mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: [true, 'Please provide name'],
+            minlength: 3,
+            maxlength: 50,
+        },
+        title: {
+            type: String,
+            required: [true, 'Please provide title'],
+            minlength: 3,
+            maxlength: 50,
+        },
+        email: {
+            type: String,
+            required: [true, 'Please provide email'],
+            match: [
+                /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
+                'please provid a valid email',
+            ],
+            unique: true,
+        },
+        password: {
+            type: String,
+            required: [true, 'Please provide password'],
+            minlength: 6,
+        },
+        friends: [
+            {
+                type: mongoose.Types.ObjectId,
+                ref: 'User',
+            },
         ],
-        unique: true
+        friendRequests: [
+            {
+                type: mongoose.Types.ObjectId,
+                ref: 'FriendRequest',
+            },
+        ],
     },
-    password : {
-        type:String,
-        required:[true, "Please provide password"],
-        minLength: 6,
-    },
+    { timestamps: true }
+)
+
+UserSchema.pre('save', async function () {
+    const salt = await bcrypt.genSalt(10)
+    this.password = await bcrypt.hash(this.password, salt)
 })
 
-UserSchema.pre("save", async function(){
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-})
-
-UserSchema.methods.createJWT = function(){
-    return jwt.sign({userId: this._id, name: this.name}, process.env.JWT_SECRET, {expiresIn: process.env.JWT_LIFETIME})
+UserSchema.methods.createJWT = function () {
+    return jwt.sign(
+        { userId: this._id, name: this.name },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_LIFETIME }
+    )
 }
 
-UserSchema.methods.comparePassword = async function(userInputPassword){
+UserSchema.methods.comparePassword = async function (userInputPassword) {
     const isMatch = await bcrypt.compare(userInputPassword, this.password)
-    return isMatch;
+    return isMatch
 }
 
-module.exports =  mongoose.model("User", UserSchema);
+module.exports = mongoose.model('User', UserSchema)

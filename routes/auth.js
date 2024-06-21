@@ -1,12 +1,10 @@
-const express = require('express');
-const router = express.Router();
+const express = require('express')
+const router = express.Router()
 
-const {login, register, getSearchUsers} = require('../controllers/auth')
+const { login, register, verifyLoginToken } = require('../controllers/auth')
 
-router.get("/", getSearchUsers)
-router.post("/register", register);
-router.post("/login", login)
+router.post('/register', register)
+router.post('/login', login)
+router.post('/verifyToken', verifyLoginToken)
 
-
-
-module.exports = router;
+module.exports = router
