@@ -1,5 +1,6 @@
 const User = require('../models/User')
 const FriendRequest = require('../models/FriendRequest')
+const jwt = require('jsonwebtoken')
 
 const { StatusCodes } = require('http-status-codes')
 const {
@@ -63,29 +64,34 @@ const login = async (req, res) => {
 }
 
 const verifyLoginToken = async (req, res) => {
-    //this will be handle after the search, add, accept friend are done
+    const { token } = req.body
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET)
+        req.user = { userId: payload.userId, name: payload.name }
+        const { userId } = req.user.userId
+        const user = await User.findOne(
+            { id: userId },
+            { name: 1, title: 1, _id: 1 }
+        )
+            .populate({
+                path: 'friendRequests',
+                populate: {
+                    path: 'requester recipient',
+                    select: '_id name title',
+                },
+            })
+            .populate('friends', '_id name title')
 
-    //when user need to refresh, we will use this to verify their token
-    // to make sure , their information are stayed updated
-    //and their login experience is seamless
-
-    res.send('Verified')
+        return res.status(StatusCodes.OK).json({ msg: 'success', user })
+    } catch (error) {
+        throw new UnauthenticatedError('Authentication Invalid')
+    }
 }
 
 const addFriend = async (req, res) => {
-    //when user add,
-    //we the dev need to send a request to the FriendRequest
-    //add it to friendRequests in user schema for both user
-    //the adder and the receipient
-    //reason: so when user log in, they can see it in their
-    //friendRequest instead of having to query to from another
-    //source to get their friend request
-    //FriendRequest is a good place to store all information
-    //related to friendRequesting
     const { userId } = req.user
     const { recipientId } = req.body
-    //console.log(userId, recipientId)
-    //check to make sure user is not receipient id
+
     if (userId == recipientId) {
         return res
             .status(StatusCodes.BAD_REQUEST)
@@ -96,19 +102,19 @@ const addFriend = async (req, res) => {
         requester: userId,
         recipient: recipientId,
     })
-    if (existingRequest) {
-        return res
-            .status(StatusCodes.BAD_REQUEST)
-            .json({ msg: 'Friend already sent' })
+    const existingRequestFromThem = await FriendRequest.findOne({
+        requester: recipientId,
+        recipient: userId,
+    })
+    if (existingRequest || existingRequestFromThem) {
+        return res.status(StatusCodes.OK).json({ msg: 'Friend already sent' })
     }
 
-    //create a Friendrequest
     const friendRequest = await FriendRequest.create({
         requester: userId,
         recipient: recipientId,
     })
 
-    //update user and receipient friendRequests
     const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
@@ -121,22 +127,13 @@ const addFriend = async (req, res) => {
         $push: { friendRequests: friendRequest._id },
     })
 
-    //we should send user information back, the current user, so user can get
-    //the most up to date user information
-
     res.status(StatusCodes.OK).json({ msg: 'sent', updatedUser })
 }
+
 const acceptFriend = async (req, res) => {
-    //if user accept friendRequest,
-    //1: status will change in friendRequest schema
-    // from pending to accept,
-    //if rejected, it will change to so
-    //once accept: user and receipient will
-    //add each other to their friends list
-    //if reject, status will change to reject and the request will get delete
     const { friendRequestId } = req.body
     const friendRequest = await FriendRequest.findOne({ _id: friendRequestId })
-    //('friendRequest:', friendRequest)
+
     if (!friendRequest) {
         throw new NotFoundError('could not find and upate the request')
     }
@@ -149,11 +146,6 @@ const acceptFriend = async (req, res) => {
         )
     }
 
-    //update the requester and recipient friends
-    //delete friend request from friendRequests from both requester and recipient
-    //console.log(friendRequest)
-    //console.log(friendRequest.requester, friendRequest.recipient)
-
     await User.updateOne(
         { _id: friendRequest.requester },
         { $pull: { friendRequests: friendRequestId } }
@@ -163,8 +155,6 @@ const acceptFriend = async (req, res) => {
         { $pull: { friendRequests: friendRequestId } }
     )
 
-    //now give them both each other friend
-    //save each other Id to friends
     await User.updateOne(
         { _id: friendRequest.requester },
         { $addToSet: { friends: friendRequest.recipient } }
@@ -173,14 +163,12 @@ const acceptFriend = async (req, res) => {
         { _id: friendRequest.recipient },
         { $addToSet: { friends: friendRequest.requester } }
     )
-    //console.log('fine')
-    //update to the FriendRequest
+
     const updateFriendRequest = await FriendRequest.findByIdAndUpdate(
         { _id: friendRequestId },
         { status: 'Accepted' },
         { new: true }
     )
-    //console.log(updateFriendRequest)
 
     const user = await User.findOne({ _id: req.user.userId })
         .populate({
@@ -216,43 +204,39 @@ const getSearchUsers = async (req, res) => {
         name: 1,
         title: 1,
         _id: 1,
+        friendRequests: 1,
     } // Include desired fields
 
-    //query for all user that match the search
     const users = await User.find(searchQuery, projection)
 
     if (!users.length > 0) {
         throw new NotFoundError('Not found')
     }
 
-    //now i need to query current User to make sure, they are not friend
     const currentUser = await User.findById(userId)
 
-    //get friendRequests Id
     const friendRequestIds = currentUser.friendRequests.map((id) =>
         id.toString()
     )
 
-    //get friends Id
     const friendIds = currentUser.friends.map((id) => id.toString())
-    //filter out the user that matched friend
+
     const filteredUsers = users.filter(
         (filterUser) => !friendIds.includes(filterUser._id.toString())
     )
-    //console.log(friendRequestIds)
-    //make sure requested change to true or false base on,
-    //if user already sent request or not
 
     const modifiedUsers = filteredUsers.map((user) => user.toObject())
 
     modifiedUsers.forEach((user) => {
-        if (friendRequestIds.includes(user._id.toString())) {
-            user.requested = true
-        } else {
-            user.requested = false
-        }
+        user.requested = false
+
+        const friendRequestsSet = new Set(
+            currentUser.friendRequests.map((request) => request.toString())
+        )
+        user.requested = user.friendRequests.some((request) =>
+            friendRequestsSet.has(request.toString())
+        )
     })
-    //console.log(filteredUsers)
 
     res.status(StatusCodes.OK).json(modifiedUsers)
 }
