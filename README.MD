@@ -1,9 +1,13 @@
 #### Setup
 
+MONGO_URI
+JWT_SECRET
+JWT_LIFETIME
+
 ```bash
 npm install && npm start
 ```
 
 #### Status
 
-Project is still in progress
+Functionality Completed

@@ -18,9 +18,9 @@ const messageRouter = require('./routes/message')
 const friendRequest = require('./routes/friendRequest')
 const searchForFriend = require('./routes/search')
 
+// extra packages
 app.use(cors())
 app.use(express.json())
-// extra packages
 
 // routes
 app.get('/', (req, res) => {
