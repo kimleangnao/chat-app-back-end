@@ -10,7 +10,7 @@ const FriendRequestSchema = new mongoose.Schema(
         recipient: {
             type: mongoose.Types.ObjectId,
             ref: 'User',
-            required: [true, 'Please provide user Id'],
+            required: [true, 'Please recipient user Id'],
         },
         status: {
             type: String,

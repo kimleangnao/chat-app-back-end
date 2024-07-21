@@ -4,6 +4,6 @@ const router = express.Router()
 const { addMessage, getMessages } = require('../controllers/message')
 
 router.route('/').post(addMessage)
-router.route('/get').post(getMessages)
+router.route('/:friendId').get(getMessages)
 
 module.exports = router

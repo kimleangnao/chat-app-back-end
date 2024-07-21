@@ -91,30 +91,33 @@ const verifyLoginToken = async (req, res) => {
 const addFriend = async (req, res) => {
     const { userId } = req.user
     const { recipientId } = req.body
-
+    //console.log('userId:', userId, recipientId)
     if (userId == recipientId) {
+        //console.log('yourself!')
         return res
             .status(StatusCodes.BAD_REQUEST)
             .json({ msg: 'You cannot add yourself' })
     }
-
+    //console.log('1')
     const existingRequest = await FriendRequest.findOne({
         requester: userId,
         recipient: recipientId,
     })
+    //console.log('2')
     const existingRequestFromThem = await FriendRequest.findOne({
         requester: recipientId,
         recipient: userId,
     })
     if (existingRequest || existingRequestFromThem) {
+        //console.log('existing!')
         return res.status(StatusCodes.OK).json({ msg: 'Friend already sent' })
     }
-
+    //console.log('3')
     const friendRequest = await FriendRequest.create({
         requester: userId,
         recipient: recipientId,
     })
-
+    //console.log('4')
     const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
@@ -122,20 +125,20 @@ const addFriend = async (req, res) => {
         },
         { new: true }
     )
-
+    //console.log('5')
     await User.findByIdAndUpdate(recipientId, {
         $push: { friendRequests: friendRequest._id },
     })
-
+    //console.log('end!')
     res.status(StatusCodes.OK).json({ msg: 'sent', updatedUser })
 }
 
 const acceptFriend = async (req, res) => {
-    const { friendRequestId } = req.body
+    const { id: friendRequestId } = req.params
     const friendRequest = await FriendRequest.findOne({ _id: friendRequestId })
 
     if (!friendRequest) {
-        throw new NotFoundError('could not find and upate the request')
+        throw new NotFoundError('could not find and update the request')
     }
     if (friendRequest.requester == req.user.userId) {
         throw new BadRequestError('You cannot accept your own friend request.')
@@ -146,30 +149,39 @@ const acceptFriend = async (req, res) => {
         )
     }
 
+    //remove friend request from requester
     await User.updateOne(
         { _id: friendRequest.requester },
         { $pull: { friendRequests: friendRequestId } }
     )
+
+    //remove friend request from recipient
     await User.updateOne(
         { _id: friendRequest.recipient },
         { $pull: { friendRequests: friendRequestId } }
     )
 
+    //add friendId to the requester friends list
     await User.updateOne(
         { _id: friendRequest.requester },
         { $addToSet: { friends: friendRequest.recipient } }
     )
+
+    //add friendId to the recipient friends list
     await User.updateOne(
         { _id: friendRequest.recipient },
         { $addToSet: { friends: friendRequest.requester } }
     )
 
+    //final update to the FriendRequest document
     const updateFriendRequest = await FriendRequest.findByIdAndUpdate(
         { _id: friendRequestId },
         { status: 'Accepted' },
         { new: true }
     )
 
+    //return back new user information,
+    //populate the friendRequest and friends
     const user = await User.findOne({ _id: req.user.userId })
         .populate({
             path: 'friendRequests',
@@ -196,6 +208,7 @@ const getSearchUsers = async (req, res) => {
     if (!search || typeof search != 'string') {
         throw new BadRequestError('Please provide a valid search')
     }
+    //console.log(search, userId)
     const searchQuery = {
         name: { $regex: new RegExp(search, 'i') },
         _id: { $ne: userId },
@@ -215,10 +228,6 @@ const getSearchUsers = async (req, res) => {
 
     const currentUser = await User.findById(userId)
 
-    const friendRequestIds = currentUser.friendRequests.map((id) =>
-        id.toString()
-    )
-
     const friendIds = currentUser.friends.map((id) => id.toString())
 
     const filteredUsers = users.filter(
@@ -229,10 +238,16 @@ const getSearchUsers = async (req, res) => {
 
     modifiedUsers.forEach((user) => {
         user.requested = false
+        //make sure user has friendRequest is not null
 
-        const friendRequestsSet = new Set(
-            currentUser.friendRequests.map((request) => request.toString())
-        )
+        if (currentUser.friendRequests != null) {
+            friendRequestsSet = new Set(
+                currentUser?.friendRequests?.map((request) =>
+                    request.toString()
+                ) || []
+            )
+        }
+
         user.requested = user.friendRequests.some((request) =>
             friendRequestsSet.has(request.toString())
         )

@@ -11,6 +11,7 @@ const errorHandlerMiddleware = (err, req, res, next) => {
     }
 
     if (err.name == 'ValidationError') {
+        //console.log('validation error!')
         customError.msg = Object.values(err.errors).map((item) => item.message)
         customError.statusCodes = 400
     }
@@ -24,9 +25,9 @@ const errorHandlerMiddleware = (err, req, res, next) => {
         customError.msg = `No item found with id: ${err.value}`
         customError.statusCodes = 404
     }
-
+    //console.log("IT'S IN ERROR HANDLING!")
     //i need to know if the email is duplicate or not error, so the front-end that show user that
-    return res.status(StatusCodes.statusCodes).json({ msg: customError.msg })
+    return res.status(customError.statusCodes).json({ msg: customError.msg })
 }
 
 module.exports = errorHandlerMiddleware

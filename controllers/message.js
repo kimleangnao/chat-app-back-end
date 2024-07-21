@@ -11,14 +11,14 @@ const addMessage = async (req, res) => {
 }
 
 const getMessages = async (req, res) => {
-    const { receiverId } = req.body
+    const { friendId } = req.params
     const { userId } = req.user
 
     const messages = await Message.find({
         $or: [
-            { createdBy: userId, receiver: receiverId },
+            { createdBy: userId, receiver: friendId },
             {
-                createdBy: receiverId,
+                createdBy: friendId,
                 receiver: userId,
             },
         ],
