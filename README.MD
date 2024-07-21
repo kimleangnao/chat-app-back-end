@@ -47,7 +47,7 @@ Payload: {receiver(id), messageText}
 
 #### Retrieve Messages
 
-/api/v1/message/:friendId
+/api/v1/message/:friendId<br />
 Method: GET<br />
 Payload: NONE
 
