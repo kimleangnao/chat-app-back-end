@@ -47,9 +47,9 @@ Payload: {receiver(id), messageText}
 
 #### Retrieve Messages
 
-/api/v1/message/get
-Method: POST<br />
-Payload: {receiverId}
+/api/v1/message/:friendId
+Method: GET<br />
+Payload: NONE
 
 #### Add friend
 
@@ -59,6 +59,6 @@ Payload: {recipientId}
 
 #### Accept Friend Request
 
-/api/v1/friends<br />
-Method: POST<br />
-Payload: {friendRequestId}
+/api/v1/friends/:id/accept<br />
+Method: PUT<br />
+Payload: NONE
